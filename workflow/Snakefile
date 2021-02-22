@@ -38,11 +38,15 @@ if config.get("is_test",False):
     QVALS = [0.001,0.01]
     ONT = "CC"
 
+MAIN_CONFIG = config.get("MAIN_CONFIG",'config/config.yaml')
+
 subworkflow scrna:
     workdir:
         "../../gte21-scrna/"
     snakefile:
         "../../gte21-scrna/workflow/Snakefile"
+    configfile:
+        MAIN_CONFIG
 
 wildcard_constraints:
     ovr="(?<=overall-)\d+(?=\\/)",
