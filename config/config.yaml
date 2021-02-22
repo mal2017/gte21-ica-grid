@@ -1,0 +1,26 @@
+# GEP option
+MAX_SCALE_ICA: 10
+QVAL_ICA: 0.005
+COMPS_ICA: 90
+REPS_ICA: 100
+CUTOFF_APPROACH_ICA: 1 # 1 for keeping component together, 2 for splitting genes by above/below median signal
+OUTLIER_FILT_KNN_ICA: 5 # robust to this
+OUTLIER_MAX_DIST_ICA: 1000
+ONT_GRID: BP
+ONTS: [BP,MF,CC]
+TOPGO_NODES: 100
+GRID_MIN_QVAL: 0.005
+GRID_MAX_QVAL: 0.1
+GRID_STEP_QVAL: 2
+GRID_MIN_COMPS: 20
+GRID_MAX_COMPS: 120
+GRID_STEP_COMPS: 10
+GRID_REPS: 100
+GRID_OVERALL_REPS: 3
+
+# sample assignments
+SCRNA_GROUPS:
+  larval-w1118-testes:
+    - larval-testes-01
+    - larval-testes-02
+    - larval-testes-03

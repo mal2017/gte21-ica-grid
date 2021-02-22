@@ -1,0 +1,9 @@
+channels:
+- conda-forge
+- bioconda
+- defaults
+dependencies:
+- r-tidyverse=1.3.0
+- bioconductor-rtracklayer
+- bioconductor-org.dm.eg.db
+- bioconductor-topgo=2.36.0

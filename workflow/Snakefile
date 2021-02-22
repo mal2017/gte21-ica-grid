@@ -1,0 +1,296 @@
+import random
+
+singularity: "docker://continuumio/miniconda3"
+configfile: "config/config.yaml"
+pepfile: "config/pep.yaml"
+
+MAX_SCALE_ICA = config.get("MAX_SCALE_ICA")
+
+CUTOFF_APPROACH_ICA = config.get("CUTOFF_APPROACH_ICA", 1)
+REPS_ICA = config.get("REPS_ICA",10)
+INDIV_RANDOM_SEEDS_ICA = random.sample(range(0,100000,1),k=REPS_ICA)
+ONTS = config.get("ONTS",["BP","MF","CC"])
+TOPGO_NODES = config.get("TOPGO_NODES",100)
+MIN_QVAL = config.get("GRID_MIN_QVAL",0.005)
+MAX_QVAL = config.get("GRID_MAX_QVAL",0.1)
+STEP_QVAL = config.get("GRID_STEP_QVAL", 2)
+MIN_COMPS = config.get("GRID_MIN_COMPS",20)
+MAX_COMPS = config.get("GRID_MAX_COMPS",170) + 1
+STEP_COMPS = config.get("GRID_STEP_COMPS", 10)
+REPS = range(1,config.get("GRID_REPS",50) + 1,1)
+OVERALL_REPS = range(1,config.get("GRID_OVERALL_REPS",2) + 1,1)
+COMPONENTS = range(MIN_COMPS,MAX_COMPS,STEP_COMPS)
+QVALS = [MIN_QVAL]
+while QVALS[-1] < MAX_QVAL:
+    QVALS.append(QVALS[-1] * STEP_QVAL)
+OUTLIER_FILT_KNN_ICA = config.get("OUTLIER_FILT_KNN_ICA")
+OUTLIER_MAX_DIST_ICA = config.get("OUTLIER_MAX_DIST_ICA")
+ONT = config.get('ONT_GRID','BP')
+ICA_VERSION = 1
+GRID_INDIV_RANDOM_SEEDS_ICA = [random.sample(range(0,100000,1),k=max(REPS)) for x in OVERALL_REPS]
+
+N_INS_SHUFFLES =config.get('N_INS_SHUFFLES',1000)
+INDIV_RANDOM_SEEDS_SHUF = random.sample(range(0,N_INS_SHUFFLES,1),k=N_INS_SHUFFLES)
+
+if config.get("is_test",False):
+    REPS = [1,2]
+    OVERALL_REPS = [1,2]
+    COMPONENTS = [5,10]
+    QVALS = [0.001,0.01]
+    ONT = "CC"
+
+
+subworkflow scrna:
+    workdir:
+        "../../gte21-scrna/"
+    snakefile:
+        "../../gte21-scrna/workflow/Snakefile"
+
+print(config.get("is_test"))
+print(REPS)
+
+rule all:
+    input:
+        #expand("results/grid-search/{g}/optimal.json",g='larval-w1118-testes'),
+        #expand("results/gep/{g}/optimal/consensus-ica-enrichment-{o}.csv.gz",g='larval-w1118-testes', o=config.get("ONTS"))
+        #expand("results/gep/{g}/standardized.csv.gz",g='larval-w1118-testes'),
+        expand("results/grid-search/{g}/ica/{k}-components/overall-rep-{ovr}/consensus-ica.qvalues.csv.gz",k=COMPONENTS,g='larval-w1118-testes', ovr=OVERALL_REPS, fdr=QVALS),
+        expand("results/grid-search/{g}/ica/{k}-components/overall-rep-{ovr}/qval-{fdr}/go.csv",g='larval-w1118-testes', k=COMPONENTS,ovr=OVERALL_REPS,fdr=QVALS)
+
+rule standardize:
+    input:
+        expr = scrna("results/scanpy/{group}/lognorm-expression.csv.gz"),
+        genes = scrna("results/scanpy/{group}/hivar-and-tes.csv"),
+    output:
+        "results/gep/{group}/standardized.csv.gz"
+    params:
+        maxval = MAX_SCALE_ICA
+    resources:
+        time=40,
+        mem=12000,
+    conda:
+        "envs/gep.yaml"
+    script:
+        "scripts/standardize.py"
+
+# ------------------------------------------------------------------------------
+# ICA itself
+# ------------------------------------------------------------------------------
+rule grid_ica_reps:
+    input:
+        rules.standardize.output
+    output:
+        source = "results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/rep-{rep}/source.csv.gz",
+        mixing = "results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/rep-{rep}/mixing.csv.gz",
+    params:
+        random_seed = lambda wc: GRID_INDIV_RANDOM_SEEDS_ICA[int(wc.ovr)-1][int(wc.rep)-1],
+        comps = lambda wc: int(wc.k)
+    resources:
+        time=40,
+        mem=12000,
+    conda:
+        "envs/gep.yaml"
+    script:
+        "scripts/ica.py"
+
+rule grid_ica_consensus:
+    input:
+        source= lambda wc: expand("results/grid-search/{g}/ica/{k}-components/overall-rep-{ovr}/rep-{rep}/source.csv.gz",g=wc.group, k=wc.k,ovr = wc.ovr, rep=range(1,max(REPS)+1,1)),
+        mixing= lambda wc: expand("results/grid-search/{g}/ica/{k}-components/overall-rep-{ovr}/rep-{rep}/mixing.csv.gz",g=wc.group, k=wc.k, ovr = wc.ovr, rep=range(1,max(REPS)+1,1)),
+    output:
+        usage="results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/consensus-usage.csv.gz",
+        ica="results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/consensus-ica.csv.gz",
+        dists = "results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/consensus-dists.csv.gz",
+        silhouette = "results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/consensus-silhouette.csv.gz",
+    params:
+        knn = OUTLIER_FILT_KNN_ICA,
+        max_dist = OUTLIER_MAX_DIST_ICA,
+        k = lambda wc: wc.k
+    resources:
+        time=240,
+        mem=128000,
+    conda:
+        "envs/gep.yaml"
+    script:
+        "scripts/grid-ica-consensus.R"
+#
+# rule grid_combine_ica_metrics:
+#     input:
+#         lambda wc: expand("results/grid-search/{g}/ica/{k}/{ovr}/consensus-{im}.csv.gz",g=wc.group, k=COMPONENTS,ovr=OVERALL_REPS, im=wc.ica_metric)
+#     output:
+#         csv = "results/grid-search/{group}/{ica_metric}.csv"
+#     resources:
+#         time=60,
+#         mem=12000,
+#     conda:
+#         "envs/gep.yaml"
+#     script:
+#         "scripts/gather_consensus_ica_metrics.R"
+
+# ------------------------------------------------------------------------------
+# fdr calcs and cutoffs
+# ------------------------------------------------------------------------------
+
+rule grid_fdr_calc:
+    input:
+        rules.grid_ica_consensus.output.ica,
+    output:
+        "results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/consensus-ica.qvalues.csv.gz"
+    params:
+        ICAver = ICA_VERSION
+    resources:
+        time=120,
+        mem=36000,
+    conda:
+        "envs/gep.yaml"
+    script:
+        "scripts/qval_calc.R"
+
+# ------------------------------------------------------------------------------
+# enrichment
+# ------------------------------------------------------------------------------
+
+rule grid_run_topgo:
+    input:
+        rules.grid_fdr_calc.output
+    output:
+        "results/grid-search/{group}/ica/{k}-components/overall-rep-{ovr}/qval-{fdr}/go.csv"
+    params:
+        qval = lambda wc: wc.fdr,
+        nodes = TOPGO_NODES,
+        ont = ONT
+    resources:
+        time=240,
+        mem=36000,
+    conda:
+        "envs/topgo.yaml"
+    script:
+        "scripts/go_enr.R"
+
+rule grid_combine_reps_enr:
+    input:
+        lambda wc: expand("results/grid-search/{g}/ica/{k}-components/overall-rep-{ovr}/qval-{fdr}/go.csv",g=wc.group, k=COMPONENTS,ovr=OVERALL_REPS,fdr=QVALS)
+    output:
+        csv="results/grid-search/{group}/go.csv"
+    resources:
+        time=60,
+        mem=12000,
+    conda:
+        "envs/gep.yaml"
+    script:
+        "scripts/gather_enr.R"
+
+# rule grid_combine_enr_metrics:
+#     input:
+#         rules.grid_combine_reps_enr.output
+#     output:
+#         "results/grid-search/{group}/go-metrics.csv"
+#     params:
+#         ont = ONT
+#     conda:
+#         "envs/topgo.yaml"
+#     script:
+#       "scripts/gather_supp_enr_metrics.R"
+#
+# rule find_optimal_cica_params:
+#     input:
+#         rules.grid_combine_enr_metrics.output
+#     output:
+#         "results/grid-search/{group}/optimal.json"
+#     conda:
+#         "envs/topgo.yaml"
+#     script:
+#         "scripts/find-optimal-cica-params.R"
+
+# --------------------------------------------------------------------
+#
+# --------------------------------------------------------------------
+
+
+# def get_optimal_ica(wcg, param='comps'):
+#     f=open("results/grid-search/{g}/optimal.json".format(g=wcg))
+#     x = json.load(f)
+#     return(x[param][0])
+#
+# rule ica_reps:
+#     input:
+#         rules.standardize.output,
+#         rules.find_optimal_cica_params.output
+#     params:
+#         random_seed = lambda wc: INDIV_RANDOM_SEEDS_ICA[int(wc.ica_rep)-1],
+#         comps = lambda wc: get_optimal_ica(wc.group)
+#     output:
+#         source="results/gep/{group}/optimal/reps/{ica_rep}/source.csv.gz",
+#         mixing="results/gep/{group}/optimal/reps/{ica_rep}/mixing.csv.gz",
+#         #components="out/ica/{k}/reps/{ica_rep}/components.csv.gz",
+#     resources:
+#         time=30,
+#         mem=24000,
+#     conda:
+#         "envs/gep.yaml"
+#     script:
+#         "scripts/ica.py"
+#
+# rule ica_consensus:
+#     input:
+#         source= lambda wc: expand("results/gep/{g}/optimal/reps/{rep}/source.csv.gz",g=wc.group, rep=range(1,REPS_ICA+1,1)),
+#         mixing= lambda wc: expand("results/gep/{g}/optimal/reps/{rep}/mixing.csv.gz",g=wc.group, rep=range(1,REPS_ICA+1,1)),
+#     output:
+#         usage="results/gep/{group}/optimal/consensus-usage.csv.gz",
+#         ica="results/gep/{group}/optimal/consensus-ica.csv.gz",
+#         dists = "results/gep/{group}/optimal/consensus-dists.csv.gz",
+#         silhouette = "results/gep/{group}/optimal/consensus-silhouette.csv.gz",
+#     params:
+#         knn = OUTLIER_FILT_KNN_ICA,
+#         max_dist = OUTLIER_MAX_DIST_ICA,
+#         k = lambda wc: get_optimal_ica(wc.group)
+#     resources:
+#         time=120,
+#         mem=24000,
+#         cpus=2
+#     conda:
+#         "envs/gep.yaml"
+#     script:
+#         "scripts/ica-consensus.R"
+#
+# rule fdr_calc:
+#     input:
+#         rules.ica_consensus.output.ica
+#     output:
+#         "results/gep/{group}/optimal/consensus-ica-qvalues.csv.gz"
+#     params:
+#         ICAver = CUTOFF_APPROACH_ICA
+#     conda:
+#         "envs/gep.yaml"
+#     script:
+#         "scripts/qval_calc.R"
+#
+# rule fdr_cut:
+#     input:
+#         rules.fdr_calc.output
+#     output:
+#         "results/gep/{group}/optimal/consensus-ica-modules.json"
+#     params:
+#         q = lambda wc: get_optimal_ica(wc.group,'qval')
+#     conda:
+#         "envs/gep.yaml"
+#     script:
+#         "scripts/qval_cut.R"
+#
+# rule enrich_ica_modules:
+#     input:
+#         rules.fdr_calc.output
+#     output:
+#         "results/gep/{group}/optimal/consensus-ica-enrichment-{ont}.csv.gz"
+#     params:
+#         qval = lambda wc: get_optimal_ica(wc,param='qval'),
+#         ont = lambda wc: wc.ont,
+#         nodes = 100,
+#     resources:
+#         time=60,
+#         mem=12000,
+#         cpus=2
+#     conda:
+#         "envs/topgo.yaml"
+#     script:
+#         "scripts/enr.R"
