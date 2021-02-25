@@ -6,14 +6,11 @@ from time import sleep
 # after each module loads. This seems to massively improve the issue.
 # Ideally there would be a slurm flag that makes sure jobs aren't submitted
 # all at once, but I can't find anything like it.
-sleep(randint(1,60))
+sleep(randint(1,300))
 
 import pandas as pd
-sleep(randint(1,60))
 import numpy as np
-sleep(randint(1,60))
 import random
-sleep(randint(1,60))
 from sklearn.decomposition import FastICA
 
 seed = snakemake.params['random_seed']
