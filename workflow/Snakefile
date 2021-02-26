@@ -224,8 +224,8 @@ rule ica_reps:
         random_seed = lambda wc: INDIV_RANDOM_SEEDS_ICA[int(wc.ica_rep)-1],
         comps = lambda wc: get_optimal_ica(wc.group)
     output:
-        source="results/gep/{group}/optimal/reps/{ica_rep}/source.csv.gz",
-        mixing="results/gep/{group}/optimal/reps/{ica_rep}/mixing.csv.gz",
+        source="results/gep/{group}/optimal/reps/rep-{ica_rep}/source.csv.gz",
+        mixing="results/gep/{group}/optimal/reps/rep-{ica_rep}/mixing.csv.gz",
         #components="out/ica/{k}/reps/{ica_rep}/components.csv.gz",
     resources:
         time=30,
@@ -237,8 +237,8 @@ rule ica_reps:
 
 rule ica_consensus:
     input:
-        source= lambda wc: expand("results/gep/{g}/optimal/reps/{rep}/source.csv.gz",g=wc.group, rep=range(1,REPS_ICA+1,1)),
-        mixing= lambda wc: expand("results/gep/{g}/optimal/reps/{rep}/mixing.csv.gz",g=wc.group, rep=range(1,REPS_ICA+1,1)),
+        source= lambda wc: expand("results/gep/{g}/optimal/reps/rep-{rep}/source.csv.gz",g=wc.group, rep=range(1,REPS_ICA+1,1)),
+        mixing= lambda wc: expand("results/gep/{g}/optimal/reps/rep-{rep}/mixing.csv.gz",g=wc.group, rep=range(1,REPS_ICA+1,1)),
     output:
         usage="results/gep/{group}/optimal/consensus-usage.csv.gz",
         ica="results/gep/{group}/optimal/consensus-ica.csv.gz",
@@ -255,7 +255,7 @@ rule ica_consensus:
     conda:
         "envs/gep.yaml"
     script:
-        "scripts/ica-consensus.R"
+        "scripts/grid-ica-consensus.R"
 
 rule fdr_calc:
     input:
@@ -297,4 +297,4 @@ rule enrich_ica_modules:
     conda:
         "envs/topgo.yaml"
     script:
-        "scripts/enr.R"
+        "scripts/go_enr.R"
