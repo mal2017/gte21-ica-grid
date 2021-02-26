@@ -10,19 +10,19 @@ max_dist <- as.numeric(snakemake@params[['max_dist']])
 k <- as.numeric(snakemake@params[['k']])
 
 src_fls <- snakemake@input[['mixing']]
-#src_fls <- Sys.glob("test/ica/10/1/*/mixing.csv.gz")
+#src_fls <- Sys.glob("results/grid-search/larval-w1118-testes/overall-1/10-components/rep*/mixing.csv.gz")
 
 usage_fls <- snakemake@input[['source']]
-#usage_fls <- Sys.glob("test/ica/10/1/*/source.csv.gz")
+#usage_fls <- Sys.glob("results/grid-search/larval-w1118-testes/overall-1/10-components/rep*/source.csv.gz")
 
 df <- src_fls %>%
-  set_names(.,str_extract(.,"(?<=\\/)\\d+(?=\\/mixing)")) %>%
+  set_names(.,str_extract(.,"(?<=\\/rep-)\\d+(?=\\/mixing)")) %>%
   map_df(., read_csv,.id = "rep") %>%
   #dplyr::rename(index=X1) %>%
   gather(module,score,-rep,-index)
 
 usage <- usage_fls %>%
-  set_names(.,str_extract(.,"(?<=\\/)\\d{1,3}(?=\\/source)")) %>%
+  set_names(.,str_extract(.,"(?<=\\/rep-)\\d+(?=\\/source)")) %>%
   map_df(.,read_csv,.id='rep') %>%
   gather(module,usage,-X1,-rep)
 

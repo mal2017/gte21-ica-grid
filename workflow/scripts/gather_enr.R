@@ -4,9 +4,9 @@ fls <- snakemake@input
 #fls <- Sys.glob("test/enr/*/*/*/enr.csv")
 
 fls <- tibble(file = fls) %>%
-  mutate(comps = str_extract(file, regex("(?<=enr\\/)\\d+(?=\\/)"))) %>%
-  mutate(rep = str_extract(file, regex("(?<=enr\\/\\d{1,3}\\/)\\d+(?=\\/)"))) %>%
-  mutate(qval = str_extract(file, regex("(?<=\\/)0\\.\\d+(?=\\/enr.csv)")))
+  mutate(comps = str_extract(file, regex("(?<=\\/)\\d+(?=-components\\/)"))) %>%
+  mutate(rep = str_extract(file, regex("(?<=overall-)\\d+(?=\\/)"))) %>%
+  mutate(qval = str_extract(file, regex("(?<=qval-)0\\.\\d+(?=\\/go.csv)")))
 
 df <- fls %>%
   mutate(df = map(file,.f=function(x) read_csv(x,col_types="cccddddd"))) %>%
