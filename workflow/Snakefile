@@ -287,7 +287,7 @@ rule enrich_ica_modules:
     output:
         "results/gep/{group}/optimal/consensus-ica-enrichment-{ont}.csv.gz"
     params:
-        qval = lambda wc: get_optimal_ica(wc,param='qval'),
+        qval = lambda wc: get_optimal_ica(wc.group,param='qval'),
         ont = lambda wc: wc.ont,
         nodes = 100,
     resources:
