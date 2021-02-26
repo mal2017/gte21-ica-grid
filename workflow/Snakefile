@@ -212,7 +212,7 @@ rule find_optimal_cica_params:
 
 
 def get_optimal_ica(wcg, param='comps'):
-    f=open("results/grid-search/{g}/optimal.json".format(g=wcg))
+    f=open("results/grid-search-{g}-optimal.json".format(g=wcg))
     x = json.load(f)
     return(x[param][0])
 
