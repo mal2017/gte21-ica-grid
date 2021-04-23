@@ -14,4 +14,5 @@ expression.set_index('index', inplace=True)
 expression = expression.loc[:,genes]
 #expression = expression.T
 expression = standardize(expression, snakemake.params["maxval"]).T
+expression = expression.dropna(axis="index")
 expression.reset_index().to_csv(snakemake.output[0], index=False)
