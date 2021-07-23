@@ -1,5 +1,7 @@
 import random
 
+random.seed(2021)
+
 singularity: "docker://continuumio/miniconda3"
 configfile: "config/config.yaml"
 pepfile: "config/pep.yaml"
