@@ -1,6 +1,6 @@
 import random
 
-random.seed(2021)
+random.seed(config.get("OVERALL_ICA_RAND_SEED",2021))
 
 singularity: "docker://continuumio/miniconda3"
 configfile: "config/config.yaml"
